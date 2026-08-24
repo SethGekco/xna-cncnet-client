@@ -28,7 +28,7 @@ namespace ClientCore
         private const bool DEFAULT_HIDE_LOCKED_GAMES = false;
         private const bool DEFAULT_HIDE_PASSWORDED_GAMES = false;
         private const bool DEFAULT_HIDE_INCOMPATIBLE_GAMES = false;
-        private const int DEFAULT_MAX_PLAYER_COUNT = 8;
+        private const int DEFAULT_MAX_PLAYER_COUNT = 16;
 
         public static UserINISettings Instance
         {
@@ -184,7 +184,7 @@ namespace ClientCore
             HideLockedGames = new BoolSetting(iniFile, GAME_FILTERS, "HideLockedGames", DEFAULT_HIDE_LOCKED_GAMES);
             HidePasswordedGames = new BoolSetting(iniFile, GAME_FILTERS, "HidePasswordedGames", DEFAULT_HIDE_PASSWORDED_GAMES);
             HideIncompatibleGames = new BoolSetting(iniFile, GAME_FILTERS, "HideIncompatibleGames", DEFAULT_HIDE_INCOMPATIBLE_GAMES);
-            MaxPlayerCount = new IntRangeSetting(iniFile, GAME_FILTERS, "MaxPlayerCount", DEFAULT_MAX_PLAYER_COUNT, 2, 8);
+            MaxPlayerCount = new IntRangeSetting(iniFile, GAME_FILTERS, "MaxPlayerCount", DEFAULT_MAX_PLAYER_COUNT, 2, 16);
 
             LoadFavoriteMaps(iniFile);
         }

@@ -48,7 +48,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             public static implicit operator Rank(int value) => new Rank(value);
         }
 
-        protected const int MAX_PLAYER_COUNT = 8;
+        protected const int MAX_PLAYER_COUNT = 16;
         protected const int PLAYER_OPTION_VERTICAL_MARGIN = 12;
         protected const int PLAYER_OPTION_HORIZONTAL_MARGIN = 3;
         protected const int PLAYER_OPTION_CAPTION_Y = 6;

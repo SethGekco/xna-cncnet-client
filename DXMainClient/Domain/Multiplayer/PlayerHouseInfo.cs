@@ -84,9 +84,39 @@ namespace DTAClient.Domain.Multiplayer
         public void RandomizeColor(PlayerInfo pInfo, List<int> freeColors, 
             List<MultiplayerColor> mpColors, Random random)
         {
+            if (mpColors.Count == 0)
+            {
+                // Nothing configured to pick from. Bail rather than throw.
+                ColorIndex = 0;
+                return;
+            }
+
             if (pInfo.ColorId == 0)
             {
-                // The player has selected Random for their color
+                // The player has selected Random for their color.
+                //
+                // freeColors can legitimately run dry: it starts with one entry
+                // per configured [MPColors] (eight in a stock install), and a
+                // lobby may now hold more players than that. The previous code
+                // indexed freeColors unguarded, so once exhausted
+                // random.Next(0, 0) returned 0 and freeColors[0] threw
+                // ArgumentOutOfRangeException and the game failed to start.
+                // Note RandomizeStart below already guards its equivalent
+                // empty-list case; this one was missed.
+                //
+                // On exhaustion, refill from the full colour set so colours
+                // repeat instead of the launch failing. Every colour is used
+                // once before any is reused.
+                //
+                // Determinism: this uses only the shared seeded Random already
+                // threaded through here, and the refill is a plain ascending
+                // rebuild, so every client computes the same result for the same
+                // seed. Do not introduce another RNG here.
+                if (freeColors.Count == 0)
+                {
+                    for (int cId = 0; cId < mpColors.Count; cId++)
+                        freeColors.Add(cId);
+                }
 
                 int randomizedColorIndex = random.Next(0, freeColors.Count);
                 int actualColorId = freeColors[randomizedColorIndex];
@@ -96,8 +126,15 @@ namespace DTAClient.Domain.Multiplayer
             }
             else
             {
-                ColorIndex = mpColors[pInfo.ColorId - 1].GameColorIndex;
-                freeColors.Remove(pInfo.ColorId - 1);
+                // Clamp rather than trust: ColorId is a 1-based dropdown index
+                // (0 == Random), so a stale or out-of-range value from the
+                // network or a saved skirmish config would index past the list.
+                int colorId = pInfo.ColorId - 1;
+                if (colorId < 0 || colorId >= mpColors.Count)
+                    colorId = 0;
+
+                ColorIndex = mpColors[colorId].GameColorIndex;
+                freeColors.Remove(colorId);
             }
         }
 
