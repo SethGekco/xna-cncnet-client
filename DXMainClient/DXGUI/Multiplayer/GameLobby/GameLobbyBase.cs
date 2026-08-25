@@ -49,6 +49,16 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
         }
 
         protected const int MAX_PLAYER_COUNT = 16;
+
+        /// <summary>
+        /// Suffixes for shifted start positions. Index is the "ring": 0 is the
+        /// map's own start position, 1-8 are compass offsets from it.
+        /// Shared contract with the PlayerCountExt engine DLL, which applies the
+        /// actual offsets — the two must agree or a player spawns somewhere
+        /// other than the slot they selected.
+        /// </summary>
+        protected static readonly string[] RING_SUFFIXES =
+            { "", "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
         protected const int PLAYER_OPTION_VERTICAL_MARGIN = 12;
         protected const int PLAYER_OPTION_HORIZONTAL_MARGIN = 3;
         protected const int PLAYER_OPTION_CAPTION_Y = 6;
@@ -2566,6 +2576,45 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                         ddStart.AddItem(i.ToString());
                     else
                         ddStart.AddItem(new XNADropDownItem() { Text = i.ToString(), Selectable = false });
+                }
+
+                // Shifted start positions.
+                //
+                // Beyond the map's own start count we offer the same positions
+                // again, offset in one of eight compass directions, so more
+                // players fit on maps that already exist. The engine side
+                // (PlayerCountExt) applies the offset; this only makes the
+                // slots selectable and labels them.
+                //
+                // The index encoding is a CONTRACT shared with the DLL. It must
+                // match exactly or a player spawns somewhere other than the slot
+                // they picked:
+                //
+                //     startIndex (0-based) = ring * realCount + baseIndex
+                //     ring 0 = the map's own position, 1..8 = N NE E SE S SW W NW
+                //
+                // This dropdown is 1-based, so item i maps to startIndex i-1.
+                if (maxLocation > 0 && maxLocation < MAX_PLAYER_COUNT)
+                {
+                    int realCount = maxLocation;
+
+                    for (int i = maxLocation + 1; i <= MAX_PLAYER_COUNT; i++)
+                    {
+                        int startIndex = i - 1;
+                        int ring = startIndex / realCount;
+                        int baseIndex = startIndex % realCount;
+
+                        // Only offer a shifted slot if the position it derives
+                        // from is one the map actually allows.
+                        bool baseAllowed = GameModeMap.AllowedStartingLocations.Contains(baseIndex + 1);
+
+                        string label = (baseIndex + 1) + RING_SUFFIXES[ring];
+
+                        if (baseAllowed && ring < RING_SUFFIXES.Length)
+                            ddStart.AddItem(label);
+                        else
+                            ddStart.AddItem(new XNADropDownItem() { Text = label, Selectable = false });
+                    }
                 }
             }
 
