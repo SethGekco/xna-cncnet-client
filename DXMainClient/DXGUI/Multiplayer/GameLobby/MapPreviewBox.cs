@@ -39,7 +39,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
     {
         public IReadOnlyList<XNAControl> SubControls => [CoopBriefingBox];
 
-        private const int MAX_STARTING_LOCATIONS = 8;
+        // Raised from 8 for the 16-player work. The starting-location dropdown
+        // offers positions past the map's own waypoint count, so this array has
+        // to be able to hold every position the dropdown can produce — when it
+        // could not, picking a high spawn threw IndexOutOfRangeException out of
+        // UpdateStartingLocationTexts and took the whole client down.
+        private const int MAX_STARTING_LOCATIONS = 16;
 
         public delegate void LocalStartingLocationSelectedEventHandler(object sender,
             LocalStartingLocationEventArgs e);
@@ -101,7 +106,14 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 indicator.AngularVelocity = angularVelocity;
                 indicator.HoverRemapColor = hoverRemapColor;
                 indicator.ReversedAngularVelocity = reservedAngularVelocity;
-                indicator.WaypointTexture = AssetLoader.LoadTexture(string.Format("slocindicator{0}.png", i + 1));
+                // Only slocindicator1..8.png ship with the themes. Rather than
+                // let positions 9+ fall back to AssetLoader's dummy texture,
+                // cycle back through the eight that exist.
+                string indicatorTextureName = string.Format("slocindicator{0}.png", i + 1);
+                if (!AssetLoader.AssetExists(indicatorTextureName))
+                    indicatorTextureName = string.Format("slocindicator{0}.png", (i % 8) + 1);
+
+                indicator.WaypointTexture = AssetLoader.LoadTexture(indicatorTextureName);
                 indicator.Tag = i;
                 indicator.LeftClick += Indicator_LeftClick;
                 indicator.RightClick += Indicator_RightClick;
@@ -573,22 +585,38 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 textureRectangle.Y + (int)(previewTexturePoint.Y * scaleRatio));
         }
 
+        /// <summary>
+        /// Files a player under their chosen starting location, ignoring any
+        /// position this preview box has no indicator for.
+        /// </summary>
+        /// <remarks>
+        /// A starting location arrives here from a dropdown selection, and the
+        /// dropdown is populated elsewhere — so this array is not the authority
+        /// on how many positions exist. Indexing it unguarded meant one
+        /// out-of-range selection killed the client outright, with the game
+        /// lobby's own crash handler as the only feedback. Skipping is the
+        /// right failure: the player simply does not appear on the preview.
+        /// </remarks>
+        private void AssignToStartingLocationIndicator(PlayerInfo pInfo)
+        {
+            int index = pInfo.StartingLocation - 1;
+
+            if (index < 0 || index >= startingLocationIndicators.Length)
+                return;
+
+            startingLocationIndicators[index].Players.Add(pInfo);
+        }
+
         public void UpdateStartingLocationTexts()
         {
             foreach (PlayerLocationIndicator indicator in startingLocationIndicators)
                 indicator.Players.Clear();
 
             foreach (PlayerInfo pInfo in players)
-            {
-                if (pInfo.StartingLocation > 0)
-                    startingLocationIndicators[pInfo.StartingLocation - 1].Players.Add(pInfo);
-            }
+                AssignToStartingLocationIndicator(pInfo);
 
             foreach (PlayerInfo aiInfo in aiPlayers)
-            {
-                if (aiInfo.StartingLocation > 0)
-                    startingLocationIndicators[aiInfo.StartingLocation - 1].Players.Add(aiInfo);
-            }
+                AssignToStartingLocationIndicator(aiInfo);
 
             foreach (PlayerLocationIndicator indicator in startingLocationIndicators)
                 indicator.Refresh();
