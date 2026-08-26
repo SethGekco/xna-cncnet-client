@@ -2594,11 +2594,19 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 //     ring 0 = the map's own position, 1..8 = N NE E SE S SW W NW
                 //
                 // This dropdown is 1-based, so item i maps to startIndex i-1.
-                if (maxLocation > 0 && maxLocation < MAX_PLAYER_COUNT)
+                // NOTE the bound is realCount x rings, NOT MAX_PLAYER_COUNT.
+                //
+                // How many start positions exist is a different question from
+                // how many players may join. Bounding this by MAX_PLAYER_COUNT
+                // meant an 8-start map produced only 16 slots — ring 1 ("N")
+                // and nothing else, so seven of the eight directions were
+                // unreachable no matter what the engine supported.
+                if (maxLocation > 0)
                 {
                     int realCount = maxLocation;
+                    int totalSlots = realCount * RING_SUFFIXES.Length;
 
-                    for (int i = maxLocation + 1; i <= MAX_PLAYER_COUNT; i++)
+                    for (int i = maxLocation + 1; i <= totalSlots; i++)
                     {
                         int startIndex = i - 1;
                         int ring = startIndex / realCount;

@@ -129,10 +129,23 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
             if (GameModeMap.EnforceMaxPlayers)
             {
-                if (totalPlayerCount > GameModeMap.MaxPlayers)
+                // A map's MaxPlayers counts only the start positions it declares.
+                // Shifted starts ("1N", "1NE", ...) add usable positions derived
+                // from those, so the real capacity is MaxPlayers x the number of
+                // rings — bounded by the lobby's own MAX_PLAYER_COUNT.
+                //
+                // This limit is relaxed rather than removed: without somewhere
+                // for the extra players to stand it was telling the truth, and
+                // exceeding what the shift can supply would put two houses on
+                // one cell.
+                int effectiveMaxPlayers = Math.Min(
+                    GameModeMap.MaxPlayers * RING_SUFFIXES.Length,
+                    MAX_PLAYER_COUNT);
+
+                if (totalPlayerCount > effectiveMaxPlayers)
                 {
                     return string.Format("{0} cannot be played with more than {1} players.".L10N("Client:Main:TooManyPlayers"),
-                        GameModeMap.ToString(), GameModeMap.MaxPlayers);
+                        GameModeMap.ToString(), effectiveMaxPlayers);
                 }
 
                 IEnumerable<PlayerInfo> concatList = Players.Concat(AIPlayers);
