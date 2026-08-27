@@ -2116,7 +2116,21 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
 
             // Check for stacked starting locations (locations with more than 1 player on it)
-            bool[] startingLocationUsed = new bool[MAX_PLAYER_COUNT];
+            //
+            // This array is indexed by STARTING WAYPOINT, not by player number,
+            // and those are different ranges once shifted start positions exist:
+            // a selection of "1W" is ring 7, i.e. start index 56, while
+            // MAX_PLAYER_COUNT is 16. Sizing it by the player cap threw
+            // IndexOutOfRangeException on launch for any shifted slot past the
+            // first ring.
+            int highestWaypoint = MAX_PLAYER_COUNT - 1;
+            foreach (PlayerHouseInfo hi in houseInfos)
+            {
+                if (hi.RealStartingWaypoint > highestWaypoint)
+                    highestWaypoint = hi.RealStartingWaypoint;
+            }
+
+            bool[] startingLocationUsed = new bool[highestWaypoint + 1];
             bool stackedStartingLocations = false;
             foreach (PlayerHouseInfo houseInfo in houseInfos)
             {
