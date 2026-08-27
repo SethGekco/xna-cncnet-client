@@ -982,7 +982,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 if (color < 0 || color > MPColors.Count)
                     return;
 
-                if (start < 0 || start > MAX_PLAYER_COUNT)
+                if (start < 0 || start >= ddPlayerStarts[0].Items.Count)
                     return;
 
                 if (team < 0 || team > 4)

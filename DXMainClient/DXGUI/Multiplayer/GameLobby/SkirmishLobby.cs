@@ -486,7 +486,14 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 pInfo.TeamId = 0;
             }
 
-            if (pInfo.StartingLocation < 0 || pInfo.StartingLocation > MAX_PLAYER_COUNT ||
+            // Bound by the start dropdown's own item count, NOT MAX_PLAYER_COUNT
+            // — the same pattern the TeamId check above uses. Start positions and
+            // player slots are different ranges once shifted starts exist: "1W"
+            // is ring 7, i.e. index 57, against a player cap of 16, so this
+            // silently reset every shifted selection past the first ring back to
+            // Random. The selection then never reached spawn.ini at all.
+            if (pInfo.StartingLocation < 0 ||
+                pInfo.StartingLocation >= ddPlayerStarts[0].Items.Count ||
                 (GameModeMap?.ForceRandomStartLocations ?? false))
             {
                 pInfo.StartingLocation = 0;
