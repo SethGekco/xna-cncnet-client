@@ -727,6 +727,9 @@ namespace DTAClient.Domain.Multiplayer
 
         private static string HouseAllyIndexToString(int index)
         {
+            // Must cover MAX_PLAYER_COUNT - 1 allies. Held seven entries while a
+            // game was capped at 8 players; at 16 an index past the end threw
+            // rather than degrading, so keep this in step with the cap.
             string[] houseAllyIndexStrings = new string[]
             {
                 "One",
@@ -735,10 +738,20 @@ namespace DTAClient.Domain.Multiplayer
                 "Four",
                 "Five",
                 "Six",
-                "Seven"
+                "Seven",
+                "Eight",
+                "Nine",
+                "Ten",
+                "Eleven",
+                "Twelve",
+                "Thirteen",
+                "Fourteen",
+                "Fifteen"
             };
 
-            return houseAllyIndexStrings[index];
+            return index >= 0 && index < houseAllyIndexStrings.Length
+                ? houseAllyIndexStrings[index]
+                : "None" + index;
         }
 
         public string GetSizeString()

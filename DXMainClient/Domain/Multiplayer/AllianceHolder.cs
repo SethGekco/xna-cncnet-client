@@ -114,6 +114,16 @@ namespace DTAClient.Domain.Multiplayer
             }
         }
 
+        /// <summary>
+        /// Maps an ally's ordinal to the key suffix the spawner expects.
+        /// </summary>
+        /// <remarks>
+        /// This used to stop at Seven, which was correct while a game held at
+        /// most 8 players and therefore at most 7 allies. Past that it returned
+        /// "None" + allyId, producing keys such as HouseAllyNone7 that nothing
+        /// reads - so on a 16-player team every alliance after the seventh was
+        /// silently dropped and teammates spawned hostile to each other.
+        /// </remarks>
         private static string GetHouseAllyIndexString(int allyId, bool selfFound)
         {
             if (selfFound)
@@ -135,6 +145,22 @@ namespace DTAClient.Domain.Multiplayer
                     return "Six";
                 case 6:
                     return "Seven";
+                case 7:
+                    return "Eight";
+                case 8:
+                    return "Nine";
+                case 9:
+                    return "Ten";
+                case 10:
+                    return "Eleven";
+                case 11:
+                    return "Twelve";
+                case 12:
+                    return "Thirteen";
+                case 13:
+                    return "Fourteen";
+                case 14:
+                    return "Fifteen";
             }
 
             return "None" + allyId;
