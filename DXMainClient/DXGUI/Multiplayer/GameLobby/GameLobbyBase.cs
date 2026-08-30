@@ -2209,6 +2209,32 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
         private void ManipulateStartingLocations(IniFile mapIni, PlayerHouseInfo[] houseInfos)
         {
+            // DISABLED: PlayerCountExt resolves shared starting locations in-game.
+            //
+            // The workaround below handles stacking by DUPLICATING waypoints - it
+            // copies a used waypoint's coordinates into an unused index so each
+            // player gets their own - and rewrites the player's SpawnLocations
+            // entry to that synthetic index.
+            //
+            // That is a reasonable approach when the engine can only seat one
+            // house per waypoint. It is actively harmful here, because the DLL
+            // treats a waypoint index as a distinct BASE POSITION and offsets
+            // compass variants from it. Duplicated waypoints made six bases
+            // resolve to three cells, so houses "spread" across base numbers
+            // that pointed at the same ground, and rewritten SpawnLocations made
+            // players' own picks appear to change.
+            //
+            // Observed once shared starts were permitted at launch: a 16-player
+            // game where the map file itself contained
+            //     0=78064  1=144140  2=78064  3=144140  4=78064  5=44123
+            // - waypoints 0/2/4 and 1/3 identical.
+            //
+            // PlayerCountExt does the same job by seating extra houses on
+            // compass variants of the position they chose, which needs the
+            // waypoints left alone and distinct.
+            return;
+
+#pragma warning disable CS0162 // unreachable - kept for reference, see above
             if (RemoveStartingLocations)
             {
                 if (GameModeMap.EnforceMaxPlayers)
@@ -2323,6 +2349,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             }
 
             spawnIni.WriteIniFile();
+#pragma warning restore CS0162
         }
 
         /// <summary>
