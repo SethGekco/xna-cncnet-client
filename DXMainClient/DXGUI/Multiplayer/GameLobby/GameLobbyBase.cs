@@ -99,6 +99,24 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
         protected XNAPanel PlayerOptionsPanel;
 
+        /// <summary>
+        /// Scrolls the player rows when there are more of them than fit.
+        /// </summary>
+        /// <remarks>
+        /// Rows are laid out at a fixed pitch from the top of PlayerOptionsPanel,
+        /// so raising MAX_PLAYER_COUNT simply runs them off the bottom of the
+        /// panel. Those rows still exist and are still wired up - they are just
+        /// positioned outside the panel, which is why start-location control
+        /// appeared to "stop" past the eighth player rather than being missing.
+        ///
+        /// Scrolling is in pixels rather than whole rows so the bar behaves
+        /// sensibly at any pitch, and rows scrolled out of view are hidden so
+        /// they cannot be clicked through the panel edge.
+        /// </remarks>
+        private XNAScrollBar playerListScrollBar;
+        private int playerRowTopY;
+        private int playerRowPitch;
+
         protected List<MultiplayerColor> MPColors;
 
         public List<GameLobbyCheckBox> CheckBoxes { get; } = new();
@@ -1217,6 +1235,8 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             ReadINIForControl(lblStart);
             ReadINIForControl(lblTeam);
 
+            InitPlayerListScrollBar(locationY, DROP_DOWN_HEIGHT + playerOptionVecticalMargin);
+
             btnPlayerExtraOptionsOpen = FindChild<XNAClientButton>(nameof(btnPlayerExtraOptionsOpen), true);
 
             if (btnPlayerExtraOptionsOpen != null)
@@ -1235,6 +1255,115 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             }
 
             CheckDisallowedSides();
+        }
+
+        private void InitPlayerListScrollBar(int locationY, int rowPitch)
+        {
+            playerRowTopY = locationY;
+            playerRowPitch = rowPitch;
+
+            playerListScrollBar = new XNAScrollBar(WindowManager);
+            playerListScrollBar.Name = "PlayerListScrollBar";
+            playerListScrollBar.ScrollStep = rowPitch;
+            playerListScrollBar.Scrolled += (s, e) => RefreshPlayerListScroll();
+
+            PlayerOptionsPanel.AddChild(playerListScrollBar);
+            ReadINIForControl(playerListScrollBar);
+
+            // Dragging a thin bar to reach player 25 would be miserable, so the
+            // wheel scrolls anywhere over the panel.
+            PlayerOptionsPanel.MouseScrolled += PlayerOptionsPanel_MouseScrolled;
+
+            RefreshPlayerListScroll();
+        }
+
+        private void PlayerOptionsPanel_MouseScrolled(object sender, InputEventArgs e)
+        {
+            if (playerListScrollBar == null || !playerListScrollBar.Visible)
+                return;
+
+            e.Handled = true;
+
+            // Same convention XNAListBox uses: wheel-up is positive and scrolls
+            // the view toward the top.
+            int maxTop = Math.Max(0, playerListScrollBar.Length - playerListScrollBar.DisplayedPixelCount);
+            int viewTop = playerListScrollBar.ViewTop
+                - (Cursor.ScrollWheelValue * playerListScrollBar.ScrollStep);
+
+            playerListScrollBar.RefreshButtonY(Math.Clamp(viewTop, 0, maxTop));
+            RefreshPlayerListScroll();
+        }
+
+        /// <summary>
+        /// Positions the player rows for the current scroll offset and hides
+        /// any that fall outside the panel.
+        /// </summary>
+        protected void RefreshPlayerListScroll()
+        {
+            if (playerListScrollBar == null || ddPlayerNames == null)
+                return;
+
+            int viewHeight = PlayerOptionsPanel.Height - playerRowTopY;
+            int contentHeight = playerRowPitch * MAX_PLAYER_COUNT;
+            bool scrollNeeded = contentHeight > viewHeight && viewHeight > 0;
+
+            playerListScrollBar.Visible = scrollNeeded;
+            playerListScrollBar.Enabled = scrollNeeded;
+
+            if (!scrollNeeded)
+            {
+                // Everything fits: park the view at the top so a shrinking
+                // player count cannot leave rows stranded above the panel.
+                playerListScrollBar.ViewTop = 0;
+            }
+            else
+            {
+                playerListScrollBar.ClientRectangle = new Rectangle(
+                    PlayerOptionsPanel.Width - playerListScrollBar.ScrollWidth - 2,
+                    playerRowTopY,
+                    playerListScrollBar.ScrollWidth,
+                    viewHeight);
+
+                playerListScrollBar.Length = contentHeight;
+                playerListScrollBar.DisplayedPixelCount = viewHeight;
+                playerListScrollBar.Refresh();
+            }
+
+            int viewTop = scrollNeeded ? playerListScrollBar.ViewTop : 0;
+
+            for (int i = 0; i < MAX_PLAYER_COUNT; i++)
+            {
+                int y = playerRowTopY + (playerRowPitch * i) - viewTop;
+
+                // A row is usable only if it lies wholly inside the panel.
+                // Partially clipped rows are hidden rather than shown cut off,
+                // because a half-visible dropdown still opens on click.
+                bool visible = y >= playerRowTopY
+                    && y + DROP_DOWN_HEIGHT <= PlayerOptionsPanel.Height;
+
+                MovePlayerRow(i, y, visible);
+            }
+        }
+
+        private void MovePlayerRow(int index, int y, bool visible)
+        {
+            SetRowControl(ddPlayerNames, index, y, visible);
+            SetRowControl(ddPlayerSides, index, y, visible);
+            SetRowControl(ddPlayerColors, index, y, visible);
+            SetRowControl(ddPlayerStarts, index, y, visible);
+            SetRowControl(ddPlayerTeams, index, y, visible);
+        }
+
+        private static void SetRowControl<T>(T[] controls, int index, int y, bool visible)
+            where T : XNAControl
+        {
+            if (controls == null || index >= controls.Length || controls[index] == null)
+                return;
+
+            var control = controls[index];
+            control.Y = y;
+            control.Visible = visible;
+            control.Enabled = visible;
         }
 
         private XNALabel GeneratePlayerOptionCaption(string name, string text, int x, int y)
@@ -2459,6 +2588,11 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             UpdateMapPreviewBoxEnabledStatus();
 
             CheckDisallowedSides();
+
+            // Row visibility is a function of the scroll offset, and the row
+            // count can change under us, so re-apply it whenever the list is
+            // rebuilt.
+            RefreshPlayerListScroll();
 
             PlayerUpdatingInProgress = false;
         }
