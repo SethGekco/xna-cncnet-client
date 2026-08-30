@@ -809,13 +809,9 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                     if (pInfo.StartingLocation == 0)
                         continue;
 
-                    if (Players.Concat(AIPlayers).ToList().Find(
-                        p => p.StartingLocation == pInfo.StartingLocation &&
-                        p.Name != pInfo.Name) != null)
-                    {
-                        SharedStartingLocationNotification();
-                        return;
-                    }
+                    // Shared starting locations are resolved in-game by
+                    // PlayerCountExt (same position, different compass variant),
+                    // so they no longer block launch.
                 }
 
                 for (int aiId = 0; aiId < AIPlayers.Count; aiId++)
@@ -825,13 +821,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                     if (startingLocation == 0)
                         continue;
 
-                    int index = AIPlayers.FindIndex(aip => aip.StartingLocation == startingLocation);
-
-                    if (index > -1 && index != aiId)
-                    {
-                        SharedStartingLocationNotification();
-                        return;
-                    }
+                    // Shared starting locations are resolved in-game; see above.
                 }
             }
 

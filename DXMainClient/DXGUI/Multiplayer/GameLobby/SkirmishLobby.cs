@@ -150,16 +150,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
                 IEnumerable<PlayerInfo> concatList = Players.Concat(AIPlayers);
 
-                foreach (PlayerInfo pInfo in concatList)
-                {
-                    if (pInfo.StartingLocation == 0)
-                        continue;
-
-                    if (concatList.Count(p => p.StartingLocation == pInfo.StartingLocation) > 1)
-                    {
-                        return "Multiple players cannot share the same starting location on the selected map.".L10N("Client:Main:StartLocationOccupied");
-                    }
-                }
+                // Sharing a starting location is allowed. PlayerCountExt gives
+                // the first house the exact slot and moves the others to free
+                // compass variants of the SAME position, so "we both picked 4"
+                // seats both players around 4 instead of refusing to launch.
+                // If that position is entirely full it falls back to the normal
+                // too-many-players search.
             }
 
             if (GameModeMap.IsCoop && Players[0].SideId == ddPlayerSides[0].Items.Count - 1)
