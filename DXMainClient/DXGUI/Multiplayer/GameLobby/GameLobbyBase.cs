@@ -1941,12 +1941,27 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             // Write alliances, the code is pretty big so let's take it to another class
             AllianceHolder.WriteInfoToSpawnIni(Players, AIPlayers, multiCmbIndexes, houseInfos.ToList(), teamStartMappings, spawnIni);
 
+            // StartingWaypoint is -1 for a player SHARING a position with someone
+            // else; their actual choice lives in RealStartingWaypoint. Vanilla
+            // filled the -1 in from ManipulateStartingLocations, which minted a
+            // synthetic duplicate waypoint - that is disabled here because it
+            // breaks the DLL's waypoint-index-as-base-position model.
+            //
+            // So fall back to the real choice. Writing the same position for two
+            // players is exactly what we want: PlayerCountExt seats one of them
+            // on it and the others on compass variants of it. Skipping the write
+            // instead left the second player with no entry at all, which the DLL
+            // reads as Random - so a player who explicitly picked position 4
+            // silently spawned somewhere else entirely.
+            int RequestedWaypoint(PlayerHouseInfo info) =>
+                info.StartingWaypoint > -1 ? info.StartingWaypoint : info.RealStartingWaypoint;
+
             for (int pId = 0; pId < Players.Count; pId++)
             {
-                int startingWaypoint = houseInfos[multiCmbIndexes[pId]].StartingWaypoint;
+                int startingWaypoint = RequestedWaypoint(houseInfos[multiCmbIndexes[pId]]);
 
-                // -1 means no starting location at all - let the game itself pick the starting location
-                // using its own logic
+                // -1 still means no starting location at all - let the game pick
+                // using its own logic.
                 if (startingWaypoint > -1)
                 {
                     int multiIndex = pId + 1;
@@ -1957,7 +1972,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
             for (int aiId = 0; aiId < AIPlayers.Count; aiId++)
             {
-                int startingWaypoint = houseInfos[Players.Count + aiId].StartingWaypoint;
+                int startingWaypoint = RequestedWaypoint(houseInfos[Players.Count + aiId]);
 
                 if (startingWaypoint > -1)
                 {
