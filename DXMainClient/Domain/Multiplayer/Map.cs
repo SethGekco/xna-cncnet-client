@@ -746,7 +746,21 @@ namespace DTAClient.Domain.Multiplayer
                 "Twelve",
                 "Thirteen",
                 "Fourteen",
-                "Fifteen"
+                "Fifteen",
+                "Sixteen",
+                "Seventeen",
+                "Eighteen",
+                "Nineteen",
+                "Twenty",
+                "TwentyOne",
+                "TwentyTwo",
+                "TwentyThree",
+                "TwentyFour",
+                "TwentyFive",
+                "TwentySix",
+                "TwentySeven",
+                "TwentyEight",
+                "TwentyNine"
             };
 
             return index >= 0 && index < houseAllyIndexStrings.Length

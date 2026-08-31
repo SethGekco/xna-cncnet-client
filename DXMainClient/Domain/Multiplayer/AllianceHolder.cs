@@ -161,6 +161,34 @@ namespace DTAClient.Domain.Multiplayer
                     return "Fourteen";
                 case 14:
                     return "Fifteen";
+                case 15:
+                    return "Sixteen";
+                case 16:
+                    return "Seventeen";
+                case 17:
+                    return "Eighteen";
+                case 18:
+                    return "Nineteen";
+                case 19:
+                    return "Twenty";
+                case 20:
+                    return "TwentyOne";
+                case 21:
+                    return "TwentyTwo";
+                case 22:
+                    return "TwentyThree";
+                case 23:
+                    return "TwentyFour";
+                case 24:
+                    return "TwentyFive";
+                case 25:
+                    return "TwentySix";
+                case 26:
+                    return "TwentySeven";
+                case 27:
+                    return "TwentyEight";
+                case 28:
+                    return "TwentyNine";
             }
 
             return "None" + allyId;

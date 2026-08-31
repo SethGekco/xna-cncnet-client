@@ -48,7 +48,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             public static implicit operator Rank(int value) => new Rank(value);
         }
 
-        protected const int MAX_PLAYER_COUNT = 16;
+        protected const int MAX_PLAYER_COUNT = 30;
 
         /// <summary>
         /// Suffixes for shifted start positions. Index is the "ring": 0 is the
