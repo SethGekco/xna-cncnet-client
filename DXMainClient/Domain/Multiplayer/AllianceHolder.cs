@@ -20,10 +20,27 @@ namespace DTAClient.Domain.Multiplayer
             IniFile spawnIni
         )
         {
-            List<int> team1MultiMemberIds = new List<int>();
-            List<int> team2MultiMemberIds = new List<int>();
-            List<int> team3MultiMemberIds = new List<int>();
-            List<int> team4MultiMemberIds = new List<int>();
+            // One bucket per team the lobby offers, rather than four named
+            // lists and a four-case switch.
+            //
+            // Teams beyond the fourth were silently dropped: a player set to
+            // team E, F, G or H matched no case, so they were written no
+            // alliances at all and played as a free-for-all house while the
+            // lobby showed them on a team. ProgramConstants.TEAMS has offered
+            // eight for a while; only this resolver was still capped at four.
+            //
+            // The engine has no concept of a team - it reads pairwise
+            // [MultiN_Alliances] - so the count here is purely a client limit
+            // and follows TEAMS automatically from now on.
+            var teamMembers = new List<List<int>>();
+            for (int i = 0; i < ProgramConstants.TEAMS.Count; i++)
+                teamMembers.Add(new List<int>());
+
+            void AddToTeam(int teamId, int multiMemberId)
+            {
+                if (teamId > 0 && teamId <= teamMembers.Count)
+                    teamMembers[teamId - 1].Add(multiMemberId);
+            }
 
             for (int pId = 0; pId < players.Count; pId++)
             {
@@ -32,24 +49,7 @@ namespace DTAClient.Domain.Multiplayer
                 if (teamId <= 0)
                     teamId = teamStartMappings?.Find(sa => sa.StartingWaypoint == phi.StartingWaypoint)?.TeamId ?? 0;
 
-                if (teamId > 0)
-                {
-                    switch (teamId)
-                    {
-                        case 1:
-                            team1MultiMemberIds.Add(multiCmbIndexes.FindIndex(c => c == pId) + 1);
-                            break;
-                        case 2:
-                            team2MultiMemberIds.Add(multiCmbIndexes.FindIndex(c => c == pId) + 1);
-                            break;
-                        case 3:
-                            team3MultiMemberIds.Add(multiCmbIndexes.FindIndex(c => c == pId) + 1);
-                            break;
-                        case 4:
-                            team4MultiMemberIds.Add(multiCmbIndexes.FindIndex(c => c == pId) + 1);
-                            break;
-                    }
-                }
+                AddToTeam(teamId, multiCmbIndexes.FindIndex(c => c == pId) + 1);
             }
 
             int multiId = multiCmbIndexes.Count + 1;
@@ -61,33 +61,12 @@ namespace DTAClient.Domain.Multiplayer
                 if (teamId <= 0)
                     teamId = teamStartMappings?.Find(sa => sa.StartingWaypoint == phi.StartingWaypoint)?.TeamId ?? 0;
 
-
-                if (teamId > 0)
-                {
-                    switch (teamId)
-                    {
-                        case 1:
-                            team1MultiMemberIds.Add(multiId);
-                            break;
-                        case 2:
-                            team2MultiMemberIds.Add(multiId);
-                            break;
-                        case 3:
-                            team3MultiMemberIds.Add(multiId);
-                            break;
-                        case 4:
-                            team4MultiMemberIds.Add(multiId);
-                            break;
-                    }
-                }
-
+                AddToTeam(teamId, multiId);
                 multiId++;
             }
 
-            WriteAlliances(team1MultiMemberIds, spawnIni);
-            WriteAlliances(team2MultiMemberIds, spawnIni);
-            WriteAlliances(team3MultiMemberIds, spawnIni);
-            WriteAlliances(team4MultiMemberIds, spawnIni);
+            foreach (var members in teamMembers)
+                WriteAlliances(members, spawnIni);
         }
 
         private static void WriteAlliances(List<int> teamHouseMemberIds, IniFile spawnIni)

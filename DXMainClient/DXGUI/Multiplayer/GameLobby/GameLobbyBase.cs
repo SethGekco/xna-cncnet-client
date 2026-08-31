@@ -1998,7 +1998,11 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
         /// <returns>The number of human player teams in the game.</returns>
         private int GetPvPTeamCount()
         {
-            int[] teamPlayerCounts = new int[4];
+            // Sized by the teams actually on offer, not a hardcoded four.
+            // TeamId runs 1..TEAMS.Count, so a player on team E or later
+            // indexed past the end of a four-element array and threw
+            // IndexOutOfRangeException.
+            int[] teamPlayerCounts = new int[ProgramConstants.TEAMS.Count];
             int playerTeamCount = 0;
 
             foreach (PlayerInfo pInfo in Players)
@@ -2006,7 +2010,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 if (pInfo.IsAI || IsPlayerSpectator(pInfo))
                     continue;
 
-                if (pInfo.TeamId > 0)
+                if (pInfo.TeamId > 0 && pInfo.TeamId <= teamPlayerCounts.Length)
                 {
                     teamPlayerCounts[pInfo.TeamId - 1]++;
                     if (teamPlayerCounts[pInfo.TeamId - 1] == 2)
