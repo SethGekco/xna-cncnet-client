@@ -160,6 +160,20 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
         private int playerRowTopY;
         private int playerRowPitch;
 
+        /// <summary>
+        /// Per-row number labels ("1".."N") on the left side of the player list.
+        /// </summary>
+        private XNALabel[] playerNumberLabels;
+
+        /// <summary>
+        /// Per-row activator check boxes. Checking the box on a row fills that
+        /// row and every empty row above it with AI players on default
+        /// settings; unchecking clears that row and every row below it. This
+        /// makes setting up e.g. a 24-slot comp stomp one click instead of 23
+        /// dropdown interactions.
+        /// </summary>
+        private XNAClientCheckBox[] playerActivatorCheckBoxes;
+
         protected List<MultiplayerColor> MPColors;
 
         public List<GameLobbyCheckBox> CheckBoxes { get; } = new();
@@ -1163,6 +1177,11 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             int teamWidth = ConfigIni.GetIntValue(Name, "TeamWidth", 46);
             int locationX = ConfigIni.GetIntValue(Name, "PlayerOptionLocationX", 25);
             int locationY = ConfigIni.GetIntValue(Name, "PlayerOptionLocationY", 24);
+            int playerNumberX = ConfigIni.GetIntValue(Name, "PlayerNumberX", 2);
+            int playerActivatorX = ConfigIni.GetIntValue(Name, "PlayerActivatorX", 24);
+
+            playerNumberLabels = new XNALabel[MAX_PLAYER_COUNT];
+            playerActivatorCheckBoxes = new XNAClientCheckBox[MAX_PLAYER_COUNT];
 
             // InitPlayerOptionDropdowns(136, 91, 79, 49, 46, new Point(25, 24));
 
@@ -1244,23 +1263,42 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 ddPlayerStart.Enabled = false;
                 ddPlayerStart.Tag = true;
 
+                var lblPlayerNumber = new XNALabel(WindowManager);
+                lblPlayerNumber.Name = "lblPlayerNumber" + i;
+                lblPlayerNumber.Text = (i + 1).ToString();
+                lblPlayerNumber.ClientRectangle = new Rectangle(playerNumberX,
+                    ddPlayerName.Y + 2, 0, 0);
+
+                var chkPlayerActive = new XNAClientCheckBox(WindowManager);
+                chkPlayerActive.Name = "chkPlayerActive" + i;
+                chkPlayerActive.ClientRectangle = new Rectangle(playerActivatorX,
+                    ddPlayerName.Y + 3, 0, 0);
+                int activatorRowIndex = i;
+                chkPlayerActive.CheckedChanged += (s, e) => PlayerActivator_CheckedChanged(activatorRowIndex);
+
                 ddPlayerNames[i] = ddPlayerName;
                 ddPlayerSides[i] = ddPlayerSide;
                 ddPlayerColors[i] = ddPlayerColor;
                 ddPlayerStarts[i] = ddPlayerStart;
                 ddPlayerTeams[i] = ddPlayerTeam;
+                playerNumberLabels[i] = lblPlayerNumber;
+                playerActivatorCheckBoxes[i] = chkPlayerActive;
 
                 PlayerOptionsPanel.AddChild(ddPlayerName);
                 PlayerOptionsPanel.AddChild(ddPlayerSide);
                 PlayerOptionsPanel.AddChild(ddPlayerColor);
                 PlayerOptionsPanel.AddChild(ddPlayerStart);
                 PlayerOptionsPanel.AddChild(ddPlayerTeam);
+                PlayerOptionsPanel.AddChild(lblPlayerNumber);
+                PlayerOptionsPanel.AddChild(chkPlayerActive);
 
                 ReadINIForControl(ddPlayerName);
                 ReadINIForControl(ddPlayerSide);
                 ReadINIForControl(ddPlayerColor);
                 ReadINIForControl(ddPlayerStart);
                 ReadINIForControl(ddPlayerTeam);
+                ReadINIForControl(lblPlayerNumber);
+                ReadINIForControl(chkPlayerActive);
             }
 
             var lblName = GeneratePlayerOptionCaption("lblName", "PLAYER".L10N("Client:Main:PlayerOptionPlayer"), ddPlayerNames[0].X, playerOptionCaptionLocationY);
@@ -1395,6 +1433,8 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             SetRowControl(ddPlayerColors, index, y, visible);
             SetRowControl(ddPlayerStarts, index, y, visible);
             SetRowControl(ddPlayerTeams, index, y, visible);
+            SetRowControl(playerNumberLabels, index, y + 2, visible);
+            SetRowControl(playerActivatorCheckBoxes, index, y + 3, visible);
         }
 
         private static void SetRowControl<T>(T[] controls, int index, int y, bool visible)
@@ -1407,6 +1447,90 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             control.Y = y;
             control.Visible = visible;
             control.Enabled = visible;
+        }
+
+        /// <summary>
+        /// Handles a click on a row's activator check box.
+        /// Checking fills this row and every empty row above it with AI players
+        /// on default settings; unchecking clears this row and every row below
+        /// it, so the active rows always form one contiguous block.
+        /// </summary>
+        private void PlayerActivator_CheckedChanged(int rowIndex)
+        {
+            // Ignore the programmatic Checked updates done while the UI is
+            // being synchronized from player data.
+            if (PlayerUpdatingInProgress)
+                return;
+
+            // Batch the dropdown changes silently, then run the normal
+            // "player options changed" pipeline once. Going through the name
+            // dropdowns rather than the player lists keeps this identical to
+            // the user having clicked each dropdown by hand, including the
+            // broadcast logic of multiplayer lobbies.
+            PlayerUpdatingInProgress = true;
+
+            if (playerActivatorCheckBoxes[rowIndex].Checked)
+            {
+                int aiNameIndex = GetDefaultAINameIndex();
+
+                for (int i = Players.Count; i <= rowIndex && i < MAX_PLAYER_COUNT; i++)
+                {
+                    if (ddPlayerNames[i].SelectedIndex < 1)
+                        ddPlayerNames[i].SelectedIndex = aiNameIndex;
+                }
+            }
+            else
+            {
+                for (int i = Math.Max(rowIndex, Players.Count); i < MAX_PLAYER_COUNT; i++)
+                {
+                    if (ddPlayerNames[i].SelectedIndex > 0)
+                        ddPlayerNames[i].SelectedIndex = 0;
+                }
+            }
+
+            PlayerUpdatingInProgress = false;
+            CopyPlayerDataFromUI(ddPlayerNames[rowIndex], EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// The name dropdown index to use for AI players added by the row
+        /// activators. Continues the pattern of the last AI in the list so a
+        /// lobby set to hard AIs fills with hard AIs; defaults to the first
+        /// AI type otherwise.
+        /// </summary>
+        private int GetDefaultAINameIndex()
+        {
+            if (AIPlayers.Count > 0)
+                return 1 + AIPlayers[AIPlayers.Count - 1].AILevel;
+
+            return 1;
+        }
+
+        /// <summary>
+        /// Synchronizes the row activator check boxes with the current player
+        /// lists. Called while the UI is being rebuilt from player data, so
+        /// the Checked updates here do not re-enter the activation logic.
+        /// </summary>
+        private void RefreshPlayerActivators(bool allowOptionsChange)
+        {
+            if (playerActivatorCheckBoxes == null)
+                return;
+
+            int activeCount = Players.Count + AIPlayers.Count;
+
+            for (int i = 0; i < MAX_PLAYER_COUNT; i++)
+            {
+                var chkPlayerActive = playerActivatorCheckBoxes[i];
+
+                if (chkPlayerActive == null)
+                    continue;
+
+                chkPlayerActive.Checked = i < activeCount;
+
+                // Human rows cannot be deactivated from here, and only whoever
+                // is allowed to edit AI slots may use the activators at all.
+                chkPlayerActive.AllowChecking = i >= Players.Count && allowOptionsChange;
+            }
         }
 
         private XNALabel GeneratePlayerOptionCaption(string name, string text, int x, int y)
@@ -2677,6 +2801,8 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             UpdateMapPreviewBoxEnabledStatus();
 
             CheckDisallowedSides();
+
+            RefreshPlayerActivators(allowOptionsChange);
 
             // Row visibility is a function of the scroll offset, and the row
             // count can change under us, so re-apply it whenever the list is
