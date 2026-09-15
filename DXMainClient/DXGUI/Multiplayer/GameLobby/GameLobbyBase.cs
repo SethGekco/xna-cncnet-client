@@ -3313,6 +3313,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 preset.AddDropDownValue(dropDown.Name, dropDown.SelectedIndex);
             }
 
+            // Also store the player setup - own row settings plus the AI
+            // roster - so a saved comp stomp can be re-enacted with one load.
+            PlayerInfo localPlayer = Players.Find(p => p.Name == ProgramConstants.PLAYERNAME);
+            preset.SetPlayerValues(localPlayer?.ToString(),
+                AIPlayers.Select(ai => ai.ToString()).ToList());
+
             GameOptionPresets.Instance.AddPreset(preset);
             return null;
         }
@@ -3349,7 +3355,82 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
             disableGameOptionUpdateBroadcast = false;
             OnGameOptionChanged();
+
+            // Player setup is applied after the game options have settled,
+            // since options can restrict the side lists.
+            ApplyPlayerPresetValues(preset);
+
             return true;
+        }
+
+        /// <summary>
+        /// Applies the player setup stored in a game option preset: the local
+        /// player's row settings and the AI roster. Presets from before player
+        /// data was stored leave the current setup untouched, as does loading
+        /// without permission to edit AI slots (non-host multiplayer clients).
+        /// </summary>
+        private void ApplyPlayerPresetValues(GameOptionPreset preset)
+        {
+            if (!preset.HasPlayerValues() || !AllowPlayerOptionsChange())
+                return;
+
+            // Apply through the row dropdowns in one silent batch and then run
+            // the normal "player options changed" pipeline once - the same
+            // pattern the row activators use, so derived lobbies broadcast the
+            // change like any manual edit.
+            PlayerUpdatingInProgress = true;
+
+            int localIndex = Players.FindIndex(p => p.Name == ProgramConstants.PLAYERNAME);
+            var humanInfo = PlayerInfo.FromString(preset.GetHumanPlayerValues() ?? string.Empty);
+
+            if (humanInfo != null && localIndex > -1)
+            {
+                SetDropDownClamped(ddPlayerSides[localIndex], humanInfo.SideId);
+                SetDropDownClamped(ddPlayerColors[localIndex], humanInfo.ColorId);
+                SetDropDownClamped(ddPlayerTeams[localIndex], humanInfo.TeamId);
+                SetDropDownClamped(ddPlayerStarts[localIndex], humanInfo.StartingLocation);
+            }
+
+            int row = Players.Count;
+
+            foreach (string aiValue in preset.GetAIPlayerValues())
+            {
+                if (row >= MAX_PLAYER_COUNT)
+                    break;
+
+                var aiInfo = PlayerInfo.FromString(aiValue);
+
+                if (aiInfo == null)
+                    continue;
+
+                ddPlayerNames[row].SelectedIndex = Math.Clamp(1 + aiInfo.AILevel, 1, ddPlayerNames[row].Items.Count - 1);
+                SetDropDownClamped(ddPlayerSides[row], aiInfo.SideId);
+                SetDropDownClamped(ddPlayerColors[row], aiInfo.ColorId);
+                SetDropDownClamped(ddPlayerTeams[row], aiInfo.TeamId);
+                SetDropDownClamped(ddPlayerStarts[row], aiInfo.StartingLocation);
+                row++;
+            }
+
+            // Rows past the preset's roster are cleared so the loaded setup is
+            // exactly what was saved.
+            for (; row < MAX_PLAYER_COUNT; row++)
+            {
+                if (ddPlayerNames[row].SelectedIndex > 0)
+                    ddPlayerNames[row].SelectedIndex = 0;
+            }
+
+            PlayerUpdatingInProgress = false;
+            CopyPlayerDataFromUI(ddPlayerNames[localIndex > -1 ? localIndex : 0], EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Sets a dropdown's selected index if the value is within its item
+        /// list, and falls back to the first item otherwise - saved setups can
+        /// reference sides or colors that no longer exist.
+        /// </summary>
+        private static void SetDropDownClamped(XNADropDown dropDown, int index)
+        {
+            dropDown.SelectedIndex = index >= 0 && index < dropDown.Items.Count ? index : 0;
         }
 
         /// <summary>
