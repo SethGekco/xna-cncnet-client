@@ -1473,10 +1473,22 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             {
                 int aiNameIndex = GetDefaultAINameIndex();
 
+                // Continue the last active row's setup: new AIs copy its
+                // country and team, like they copy the last AI's difficulty.
+                // With no AI present the last active row is a human's, so a
+                // pre-configured own row seeds the fill too.
+                int sourceRow = Players.Count + AIPlayers.Count - 1;
+                int sideIndex = Math.Max(ddPlayerSides[sourceRow].SelectedIndex, 0);
+                int teamIndex = Math.Max(ddPlayerTeams[sourceRow].SelectedIndex, 0);
+
                 for (int i = Players.Count; i <= rowIndex && i < MAX_PLAYER_COUNT; i++)
                 {
                     if (ddPlayerNames[i].SelectedIndex < 1)
+                    {
                         ddPlayerNames[i].SelectedIndex = aiNameIndex;
+                        ddPlayerSides[i].SelectedIndex = sideIndex;
+                        ddPlayerTeams[i].SelectedIndex = teamIndex;
+                    }
                 }
             }
             else
