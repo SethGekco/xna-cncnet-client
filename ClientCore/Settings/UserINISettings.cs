@@ -28,6 +28,8 @@ namespace ClientCore
         private const bool DEFAULT_HIDE_LOCKED_GAMES = false;
         private const bool DEFAULT_HIDE_PASSWORDED_GAMES = false;
         private const bool DEFAULT_HIDE_INCOMPATIBLE_GAMES = false;
+        // Default for the game-LIST filter, not the lobby capacity - that is
+        // ClientConfiguration.MaxPlayerCount.
         private const int DEFAULT_MAX_PLAYER_COUNT = 16;
 
         public static UserINISettings Instance
@@ -184,7 +186,11 @@ namespace ClientCore
             HideLockedGames = new BoolSetting(iniFile, GAME_FILTERS, "HideLockedGames", DEFAULT_HIDE_LOCKED_GAMES);
             HidePasswordedGames = new BoolSetting(iniFile, GAME_FILTERS, "HidePasswordedGames", DEFAULT_HIDE_PASSWORDED_GAMES);
             HideIncompatibleGames = new BoolSetting(iniFile, GAME_FILTERS, "HideIncompatibleGames", DEFAULT_HIDE_INCOMPATIBLE_GAMES);
-            MaxPlayerCount = new IntRangeSetting(iniFile, GAME_FILTERS, "MaxPlayerCount", DEFAULT_MAX_PLAYER_COUNT, 2, 16);
+            // Range follows the supported ceiling, otherwise the game-list
+            // filter cannot express a lobby larger than 16 and such games look
+            // invisible to anyone filtering.
+            MaxPlayerCount = new IntRangeSetting(iniFile, GAME_FILTERS, "MaxPlayerCount",
+                DEFAULT_MAX_PLAYER_COUNT, 2, ClientConfiguration.MAX_SUPPORTED_PLAYER_COUNT);
 
             LoadFavoriteMaps(iniFile);
         }

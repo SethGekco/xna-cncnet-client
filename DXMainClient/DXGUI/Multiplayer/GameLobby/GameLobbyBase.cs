@@ -48,7 +48,50 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             public static implicit operator Rank(int value) => new Rank(value);
         }
 
-        protected const int MAX_PLAYER_COUNT = 30;
+        /// <summary>
+        /// Highest number of players this lobby can hold.
+        /// </summary>
+        /// <remarks>
+        /// Read once from ClientDefinitions.ini so a mod can choose 4, 12, 30 or
+        /// anything between without rebuilding the client, and clamped because
+        /// the ceiling is structural rather than a preference: the engine's house
+        /// sets are 32-bit bitfields indexed by ArrayIndex over
+        /// [players + Neutral + Special], so past 30 players index 32 aliases
+        /// index 0 and houses quietly share alliance bits.
+        ///
+        /// A game mode can cap itself further with MaxPlayersOverride in its own
+        /// INI section, which GameModeMap already honours - that is a separate
+        /// and finer-grained knob than this one.
+        ///
+        /// Resolved lazily rather than in a static initialiser so it cannot race
+        /// ClientConfiguration being ready.
+        /// </remarks>
+        protected static int MAX_PLAYER_COUNT => maxPlayerCount ??= ResolveMaxPlayerCount();
+
+        private static int? maxPlayerCount;
+
+        private static int ResolveMaxPlayerCount()
+        {
+            int configured = ClientConfiguration.Instance.MaxPlayerCount;
+            int clamped = Math.Clamp(configured,
+                ClientConfiguration.MIN_SUPPORTED_PLAYER_COUNT,
+                ClientConfiguration.MAX_SUPPORTED_PLAYER_COUNT);
+
+            if (clamped != configured)
+            {
+                Logger.Log($"MaxPlayerCount={configured} is out of range and was clamped to " +
+                    $"{clamped}. Values above {ClientConfiguration.MAX_SUPPORTED_PLAYER_COUNT} " +
+                    "cannot work: the engine's per-house bitfields are 32 bits wide and the " +
+                    "house array also holds Neutral and Special, so houses past that point " +
+                    "silently share alliance bits instead of failing.");
+            }
+            else
+            {
+                Logger.Log($"MaxPlayerCount={clamped}");
+            }
+
+            return clamped;
+        }
 
         /// <summary>
         /// Suffixes for shifted start positions. Index is the "ring": 0 is the

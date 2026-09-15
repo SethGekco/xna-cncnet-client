@@ -216,6 +216,33 @@ namespace ClientCore
 
         public int SendSleep => clientDefinitionsIni.GetIntValue(SETTINGS, "SendSleep", 2500);
 
+        /// <summary>
+        /// Highest number of players a game may hold, set by the mod in
+        /// ClientDefinitions.ini.
+        /// </summary>
+        /// <remarks>
+        /// Not to be confused with UserINISettings.MaxPlayerCount, which is a
+        /// per-user filter for the game LIST. This is the lobby's own capacity.
+        ///
+        /// Callers must clamp to MAX_SUPPORTED_PLAYER_COUNT. The engine stores a
+        /// house set as a 32-bit bitfield indexed by ArrayIndex, and the house
+        /// array is [players + Neutral + Special], so 30 players is the last
+        /// value that fits. Beyond it x86 masks the shift count to 5 bits and
+        /// index 32 aliases index 0 - houses silently share alliance bits rather
+        /// than crashing, which is a far worse failure than a refused setting.
+        /// </remarks>
+        public int MaxPlayerCount => clientDefinitionsIni.GetIntValue(SETTINGS, "MaxPlayerCount", 30);
+
+        /// <summary>
+        /// The highest value MaxPlayerCount may take. See the remarks there.
+        /// </summary>
+        public const int MAX_SUPPORTED_PLAYER_COUNT = 30;
+
+        /// <summary>
+        /// The lowest sensible value; a game needs two sides.
+        /// </summary>
+        public const int MIN_SUPPORTED_PLAYER_COUNT = 2;
+
         public int LoadingScreenCount => clientDefinitionsIni.GetIntValue(SETTINGS, "LoadingScreenCount", 2);
 
         public int ThemeCount => clientDefinitionsIni.GetSectionKeys("Themes").Count;
