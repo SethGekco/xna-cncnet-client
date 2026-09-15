@@ -130,9 +130,22 @@ namespace DTAClient.DXGUI.Multiplayer.CnCNet
             Disable();
         }
 
+        /// <summary>
+        /// The preset store this window operates on. Overridden by
+        /// <see cref="LoadOrSavePlayerPresetWindow"/> to target the player
+        /// preset collection instead of the game option presets.
+        /// </summary>
+        protected virtual System.Collections.Generic.List<string> GetPresetNames()
+            => GameOptionPresets.Instance.GetPresetNames();
+
+        protected virtual void DeletePreset(string name)
+            => GameOptionPresets.Instance.DeletePreset(name);
+
+        protected virtual string WindowName => "LoadOrSaveGameOptionPresetWindow";
+
         public override void Initialize()
         {
-            Name = "LoadOrSaveGameOptionPresetWindow";
+            Name = WindowName;
             PanelBackgroundDrawMode = PanelBackgroundImageDrawMode.STRETCHED;
             BackgroundTexture = AssetLoader.CreateTexture(new Color(0, 0, 0, 255), 1, 1);
 
@@ -215,8 +228,7 @@ namespace DTAClient.DXGUI.Multiplayer.CnCNet
             ddPresetSelect.Items.Add(_isLoad ? ddiSelectPresetItem : ddiCreatePresetItem);
             ddPresetSelect.SelectedIndex = 0;
 
-            ddPresetSelect.Items.AddRange(GameOptionPresets.Instance
-                .GetPresetNames()
+            ddPresetSelect.Items.AddRange(GetPresetNames()
                 .OrderBy(name => name)
                 .Select(name => new XNADropDownItem()
                 {
@@ -273,10 +285,30 @@ namespace DTAClient.DXGUI.Multiplayer.CnCNet
                 "Are you sure you want to delete this preset?".L10N("Client:Main:ConfirmPresetDeleteText") + "\n\n" + selectedItem.Text);
             messageBox.YesClickedAction = box =>
             {
-                GameOptionPresets.Instance.DeletePreset(selectedItem.Text);
+                DeletePreset(selectedItem.Text);
                 ddPresetSelect.Items.Remove(selectedItem);
                 ddPresetSelect.SelectedIndex = 0;
             };
         }
+    }
+
+    /// <summary>
+    /// The load/save window for player setup presets. Same UI as the game
+    /// option preset window, but operating on the separate player preset
+    /// collection.
+    /// </summary>
+    public class LoadOrSavePlayerPresetWindow : LoadOrSaveGameOptionPresetWindow
+    {
+        public LoadOrSavePlayerPresetWindow(WindowManager windowManager) : base(windowManager)
+        {
+        }
+
+        protected override System.Collections.Generic.List<string> GetPresetNames()
+            => PlayerPresets.Instance.GetPresetNames();
+
+        protected override void DeletePreset(string name)
+            => PlayerPresets.Instance.DeletePreset(name);
+
+        protected override string WindowName => "LoadOrSavePlayerPresetWindow";
     }
 }

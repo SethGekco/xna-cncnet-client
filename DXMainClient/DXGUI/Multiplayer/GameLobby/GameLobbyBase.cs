@@ -328,6 +328,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
         private LoadOrSaveGameOptionPresetWindow loadOrSaveGameOptionPresetWindow;
 
+        protected XNAClientButton btnSaveLoadPlayerPresets { get; set; }
+
+        private XNAContextMenu loadSavePlayerPresetsMenu { get; set; }
+
+        private LoadOrSavePlayerPresetWindow loadOrSavePlayerPresetWindow;
+
         public override void Initialize()
         {
             Name = _iniSectionName;
@@ -532,6 +538,50 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 AddChild(loadSaveGameOptionsMenu);
                 AddChild(loadOrSaveGameOptionPresetWindow);
             }
+
+            InitializePlayerPresetUI();
+        }
+
+        /// <summary>
+        /// Sets up the save/load UI for player presets: the same
+        /// button-opens-menu-opens-window flow as the game option presets,
+        /// but targeting the separate player preset collection.
+        /// </summary>
+        private void InitializePlayerPresetUI()
+        {
+            btnSaveLoadPlayerPresets = FindChild<XNAClientButton>(nameof(btnSaveLoadPlayerPresets), true);
+
+            if (btnSaveLoadPlayerPresets == null)
+                return;
+
+            loadOrSavePlayerPresetWindow = new LoadOrSavePlayerPresetWindow(WindowManager);
+            loadOrSavePlayerPresetWindow.Name = nameof(loadOrSavePlayerPresetWindow);
+            loadOrSavePlayerPresetWindow.PresetLoaded += (sender, s) => HandlePlayerPresetLoadCommand(s);
+            loadOrSavePlayerPresetWindow.PresetSaved += (sender, s) => HandlePlayerPresetSaveCommand(s);
+            loadOrSavePlayerPresetWindow.Disable();
+
+            var loadPresetMenuItem = new XNAContextMenuItem()
+            {
+                Text = "Load".L10N("Client:Main:ButtonLoad"),
+                SelectAction = () => loadOrSavePlayerPresetWindow.Show(true)
+            };
+            var savePresetMenuItem = new XNAContextMenuItem()
+            {
+                Text = "Save".L10N("Client:Main:ButtonSave"),
+                SelectAction = () => loadOrSavePlayerPresetWindow.Show(false)
+            };
+
+            loadSavePlayerPresetsMenu = new XNAContextMenu(WindowManager);
+            loadSavePlayerPresetsMenu.Name = nameof(loadSavePlayerPresetsMenu);
+            loadSavePlayerPresetsMenu.ClientRectangle = new Rectangle(0, 0, 75, 0);
+            loadSavePlayerPresetsMenu.Items.Add(loadPresetMenuItem);
+            loadSavePlayerPresetsMenu.Items.Add(savePresetMenuItem);
+
+            btnSaveLoadPlayerPresets.LeftClick += (sender, args) =>
+                loadSavePlayerPresetsMenu.Open(GetCursorPoint());
+
+            AddChild(loadSavePlayerPresetsMenu);
+            AddChild(loadOrSavePlayerPresetWindow);
         }
 
         private void BtnMapSortAlphabetically_LeftClick(object sender, EventArgs e)
@@ -3313,14 +3363,57 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 preset.AddDropDownValue(dropDown.Name, dropDown.SelectedIndex);
             }
 
-            // Also store the player setup - own row settings plus the AI
-            // roster - so a saved comp stomp can be re-enacted with one load.
+            GameOptionPresets.Instance.AddPreset(preset);
+            return null;
+        }
+
+        /// <summary>
+        /// Saves the current player setup - the local player's row settings
+        /// plus the AI roster - as a named player preset, separate from the
+        /// game option presets. Returns null on success, an error message
+        /// otherwise.
+        /// </summary>
+        private string AddPlayerPreset(string name)
+        {
+            string error = PlayerPreset.IsNameValid(name);
+            if (!string.IsNullOrEmpty(error))
+                return error;
+
+            var preset = new PlayerPreset(name);
+
             PlayerInfo localPlayer = Players.Find(p => p.Name == ProgramConstants.PLAYERNAME);
             preset.SetPlayerValues(localPlayer?.ToString(),
                 AIPlayers.Select(ai => ai.ToString()).ToList());
 
-            GameOptionPresets.Instance.AddPreset(preset);
+            PlayerPresets.Instance.AddPreset(preset);
             return null;
+        }
+
+        private void HandlePlayerPresetSaveCommand(GameOptionPresetEventArgs e)
+        {
+            string error = AddPlayerPreset(e.PresetName);
+            if (!string.IsNullOrEmpty(error))
+                AddNotice(error);
+        }
+
+        private void HandlePlayerPresetLoadCommand(GameOptionPresetEventArgs e)
+        {
+            PlayerPreset preset = PlayerPresets.Instance.GetPreset(e.PresetName);
+
+            if (preset == null)
+            {
+                AddNotice(string.Format("Preset {0} not found!".L10N("Client:Main:PresetNotFound"), e.PresetName));
+                return;
+            }
+
+            if (!AllowPlayerOptionsChange())
+            {
+                AddNotice("Only the game host can load a player preset.".L10N("Client:Main:PlayerPresetHostOnly"));
+                return;
+            }
+
+            ApplyPlayerPreset(preset);
+            AddNotice("Player preset loaded succesfully.".L10N("Client:Main:PlayerPresetLoaded"));
         }
 
         public bool LoadGameOptionPreset(string name)
@@ -3355,25 +3448,15 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
             disableGameOptionUpdateBroadcast = false;
             OnGameOptionChanged();
-
-            // Player setup is applied after the game options have settled,
-            // since options can restrict the side lists.
-            ApplyPlayerPresetValues(preset);
-
             return true;
         }
 
         /// <summary>
-        /// Applies the player setup stored in a game option preset: the local
-        /// player's row settings and the AI roster. Presets from before player
-        /// data was stored leave the current setup untouched, as does loading
-        /// without permission to edit AI slots (non-host multiplayer clients).
+        /// Applies a player preset: the local player's row settings and the
+        /// AI roster.
         /// </summary>
-        private void ApplyPlayerPresetValues(GameOptionPreset preset)
+        private void ApplyPlayerPreset(PlayerPreset preset)
         {
-            if (!preset.HasPlayerValues() || !AllowPlayerOptionsChange())
-                return;
-
             // Apply through the row dropdowns in one silent batch and then run
             // the normal "player options changed" pipeline once - the same
             // pattern the row activators use, so derived lobbies broadcast the

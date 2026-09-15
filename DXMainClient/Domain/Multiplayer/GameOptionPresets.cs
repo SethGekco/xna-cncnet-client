@@ -36,9 +36,6 @@ namespace DTAClient.Domain.Multiplayer
         private Dictionary<string, bool> checkBoxValues = new Dictionary<string, bool>();
         private Dictionary<string, int> dropDownValues = new Dictionary<string, int>();
 
-        private string humanPlayerValues = string.Empty;
-        private List<string> aiPlayerValues = new List<string>();
-
         private void AddValues<T>(IniSection section, string keyName, Dictionary<string, T> dictionary, Converter<string, T> converter)
         {
             string[] valueStrings = section.GetStringValue(keyName,
@@ -70,27 +67,6 @@ namespace DTAClient.Domain.Multiplayer
         public Dictionary<string, bool> GetCheckBoxValues() => new Dictionary<string, bool>(checkBoxValues);
         public Dictionary<string, int> GetDropDownValues() => new Dictionary<string, int>(dropDownValues);
 
-        /// <summary>
-        /// Stores the player setup: the local player's row settings and the
-        /// AI roster, both in <see cref="PlayerInfo"/> string format.
-        /// </summary>
-        public void SetPlayerValues(string humanPlayer, List<string> aiPlayers)
-        {
-            humanPlayerValues = humanPlayer ?? string.Empty;
-            aiPlayerValues = aiPlayers ?? new List<string>();
-        }
-
-        public string GetHumanPlayerValues() => humanPlayerValues;
-
-        public List<string> GetAIPlayerValues() => new List<string>(aiPlayerValues);
-
-        /// <summary>
-        /// Whether this preset carries a player setup. Presets saved before
-        /// player data was stored do not, and loading one leaves the current
-        /// player setup untouched.
-        /// </summary>
-        public bool HasPlayerValues() => !string.IsNullOrEmpty(humanPlayerValues) || aiPlayerValues.Count > 0;
-
         public void Read(IniSection section)
         {
             // Syntax example:
@@ -99,14 +75,6 @@ namespace DTAClient.Domain.Multiplayer
 
             AddValues(section, "CheckBoxValues", checkBoxValues, s => s == "1");
             AddValues(section, "DropDownValues", dropDownValues, s => Conversions.IntFromString(s, 0));
-
-            // Player setup. PlayerInfo strings are comma-separated internally,
-            // so each player gets its own key, like in SkirmishSettings.ini.
-            humanPlayerValues = section.GetStringValue("HumanPlayer", string.Empty);
-
-            aiPlayerValues.Clear();
-            for (int i = 0; section.KeyExists("AIPlayer" + i); i++)
-                aiPlayerValues.Add(section.GetStringValue("AIPlayer" + i, string.Empty));
         }
 
         public void Write(IniSection section)
@@ -115,12 +83,6 @@ namespace DTAClient.Domain.Multiplayer
                 checkBoxValues.Select(s => $"{s.Key}:{(s.Value ? "1" : "0")}")));
             section.SetStringValue("DropDownValues", string.Join(",",
                 dropDownValues.Select(s => $"{s.Key}:{s.Value.ToString()}")));
-
-            if (!string.IsNullOrEmpty(humanPlayerValues))
-                section.SetStringValue("HumanPlayer", humanPlayerValues);
-
-            for (int i = 0; i < aiPlayerValues.Count; i++)
-                section.SetStringValue("AIPlayer" + i, aiPlayerValues[i]);
         }
     }
 
