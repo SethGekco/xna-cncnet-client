@@ -1342,13 +1342,13 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 PlayerOptionsPanel.AddChild(lblPlayerNumber);
                 PlayerOptionsPanel.AddChild(chkPlayerActive);
 
-                ReadINIForControl(ddPlayerName);
-                ReadINIForControl(ddPlayerSide);
-                ReadINIForControl(ddPlayerColor);
-                ReadINIForControl(ddPlayerStart);
-                ReadINIForControl(ddPlayerTeam);
-                ReadINIForControl(lblPlayerNumber);
-                ReadINIForControl(chkPlayerActive);
+                ReadINIForPlayerRowControl(ddPlayerName, "ddPlayerNameBase");
+                ReadINIForPlayerRowControl(ddPlayerSide, "ddPlayerSideBase");
+                ReadINIForPlayerRowControl(ddPlayerColor, "ddPlayerColorBase");
+                ReadINIForPlayerRowControl(ddPlayerStart, "ddPlayerStartBase");
+                ReadINIForPlayerRowControl(ddPlayerTeam, "ddPlayerTeamBase");
+                ReadINIForPlayerRowControl(lblPlayerNumber, "lblPlayerNumberBase");
+                ReadINIForPlayerRowControl(chkPlayerActive, "chkPlayerActiveBase");
             }
 
             var lblName = GeneratePlayerOptionCaption("lblName", "PLAYER".L10N("Client:Main:PlayerOptionPlayer"), ddPlayerNames[0].X, playerOptionCaptionLocationY);
@@ -1386,6 +1386,34 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             }
 
             CheckDisallowedSides();
+        }
+
+        /// <summary>
+        /// Reads INI attributes for a per-row player option control. Themes
+        /// only enumerate sections for the first rows (typically 0-7), each
+        /// inheriting a shared "...Base" section; rows past those have no
+        /// section of their own and would silently skip theming - which is how
+        /// color dropdowns past the eighth row missed RandomColorTexture and
+        /// showed the side dropdowns' random icon. Such rows read the shared
+        /// base section directly instead.
+        /// </summary>
+        private void ReadINIForPlayerRowControl(XNAControl control, string baseSectionName)
+        {
+            if (ConfigIni.GetSection(control.Name) != null)
+            {
+                ReadINIForControl(control);
+                return;
+            }
+
+            if (ConfigIni.GetSection(baseSectionName) == null)
+                return;
+
+            // ReadINIForControl looks the section up by control name, so
+            // borrow the base section's name for the duration of the read.
+            string realName = control.Name;
+            control.Name = baseSectionName;
+            ReadINIForControl(control);
+            control.Name = realName;
         }
 
         private void InitPlayerListScrollBar(int locationY, int rowPitch)
