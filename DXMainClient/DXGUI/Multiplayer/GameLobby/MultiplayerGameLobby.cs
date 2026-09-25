@@ -58,10 +58,26 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
 
         protected XNAPlayerSlotIndicator[] StatusIndicators;
 
+        /// <summary>
+        /// The status indicators' Y offset from their row (PlayerStatusIndicatorY),
+        /// kept so the scroll layout can re-apply it when rows move.
+        /// </summary>
+        private int statusIndicatorYOffset;
+
         protected ChatListBox lbChatMessages;
         protected XNAChatTextBox tbChatInput;
         protected XNAClientButton btnLockGame;
         protected XNAClientCheckBox chkAutoReady;
+
+        /// <summary>
+        /// Moves the status indicators along with their rows when the player
+        /// list scrolls, and hides the ones whose rows are out of view.
+        /// </summary>
+        protected override void MovePlayerRow(int index, int y, bool visible)
+        {
+            base.MovePlayerRow(index, y, visible);
+            SetRowControl(StatusIndicators, index, y + statusIndicatorYOffset, visible);
+        }
 
         private Random random;
 
@@ -147,13 +163,13 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             StatusIndicators = new XNAPlayerSlotIndicator[MAX_PLAYER_COUNT];
 
             int statusIndicatorX = ConfigIni.GetIntValue(Name, "PlayerStatusIndicatorX", 0);
-            int statusIndicatorY = ConfigIni.GetIntValue(Name, "PlayerStatusIndicatorY", 0);
+            statusIndicatorYOffset = ConfigIni.GetIntValue(Name, "PlayerStatusIndicatorY", 0);
 
             for (int i = 0; i < MAX_PLAYER_COUNT; i++)
             {
                 var indicatorPlayerReady = new XNAPlayerSlotIndicator(WindowManager);
                 indicatorPlayerReady.Name = "playerStatusIndicator" + i;
-                indicatorPlayerReady.ClientRectangle = new Rectangle(statusIndicatorX, ddPlayerTeams[i].Y + statusIndicatorY,
+                indicatorPlayerReady.ClientRectangle = new Rectangle(statusIndicatorX, ddPlayerTeams[i].Y + statusIndicatorYOffset,
                     0, 0);
 
                 PlayerOptionsPanel.AddChild(indicatorPlayerReady);
@@ -163,6 +179,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
                 const string spectatorName = "Spectator";
                 AddSideToDropDown(ddPlayerSides[i], spectatorName, spectatorName.L10N("Client:Sides:SpectatorSide"), AssetLoader.LoadTexture("spectatoricon.png"));
             }
+
+            // The indicators were created after the initial scroll layout ran,
+            // so re-apply it - otherwise rows past the panel keep indicators
+            // stacked at their unscrolled positions, marching over the UI
+            // below the panel.
+            RefreshPlayerListScroll();
 
             lbChatMessages = FindChild<ChatListBox>(nameof(lbChatMessages));
 

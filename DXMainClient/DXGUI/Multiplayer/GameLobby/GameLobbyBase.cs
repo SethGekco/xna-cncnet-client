@@ -1504,7 +1504,12 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             }
         }
 
-        private void MovePlayerRow(int index, int y, bool visible)
+        /// <summary>
+        /// Positions one player row's controls for the current scroll offset.
+        /// Derived lobbies override this to move their own per-row controls
+        /// (e.g. the multiplayer status indicators) along with the row.
+        /// </summary>
+        protected virtual void MovePlayerRow(int index, int y, bool visible)
         {
             SetRowControl(ddPlayerNames, index, y, visible);
             SetRowControl(ddPlayerSides, index, y, visible);
@@ -1515,7 +1520,7 @@ namespace DTAClient.DXGUI.Multiplayer.GameLobby
             SetRowControl(playerActivatorCheckBoxes, index, y + 3, visible);
         }
 
-        private static void SetRowControl<T>(T[] controls, int index, int y, bool visible)
+        protected static void SetRowControl<T>(T[] controls, int index, int y, bool visible)
             where T : XNAControl
         {
             if (controls == null || index >= controls.Length || controls[index] == null)
